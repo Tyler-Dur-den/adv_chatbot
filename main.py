@@ -62,12 +62,13 @@ def create_rag_chain(retriever):
     llm = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=0)
 
     system_prompt = (
-        "You are an expert document assistant. Use the following pieces of retrieved "
-        "context to answer the question. If you don't know the answer, say that you don't know. "
-        "Keep the answer detailed, professional, and clear.\n\n"
-        "Context:\n{context}"
-    )
-
+    "You are an expert document assistant. Answer the user's question directly using "
+    "only the provided context. Do NOT use phrases like 'based on the provided context' or "
+    "'the context mentions'. State facts authoritatively and clearly. If the context does not "
+    "contain enough information to answer, state that you don't know.\n\n"
+    "Context:\n{context}"
+)
+    
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
         ("human", "{input}"),
