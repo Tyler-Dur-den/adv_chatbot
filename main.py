@@ -6,13 +6,15 @@ from langchain_community.retrievers import BM25Retriever
 from langchain_classic.retrievers import EnsembleRetriever
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_classic.chains import create_retrieval_chain
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
+from langchain.messages import HumanMessage, SystemMessage, AIMessage
 import os
 from dotenv import load_dotenv
 load_dotenv()
+
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 cross_encoder_model = HuggingFaceCrossEncoder(model_name="BAAI/bge-reranker-v2-m3")
 from langchain_classic.retrievers.document_compressors import CrossEncoderReranker
@@ -71,8 +73,44 @@ def create_rag_chain(retriever):
     
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
+        MessagesPlaceholder("chat_history"), 
         ("human", "{input}"),
     ])
 
     question_answer_chain = create_stuff_documents_chain(llm, prompt)
     return create_retrieval_chain(retriever, question_answer_chain)
+
+from langgraph.graph import StateGraph, START, END
+from typing import TypedDict, Annotated
+from langgraph.graph.message import add_messages
+from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.messages import BaseMessage
+
+def build_rag_graph(rag_chain):
+    class RagState(TypedDict):
+        messages : Annotated[list[BaseMessage], add_messages]
+        context: list
+
+    def answer_node(state:RagState):
+        chat_history = state["messages"][:-1]
+        current_question = state["messages"][-1].content
+        result = rag_chain.invoke({
+            "input" : current_question,
+            "chat_history" : chat_history
+        })
+        return {
+            "messages": [AIMessage(content=result["answer"])],
+            "context": result["context"]
+            }
+
+    checkpoint = MemorySaver()
+    
+    graph = StateGraph(RagState)
+
+    graph.add_node("answer_node", answer_node)
+
+    graph.add_edge(START, "answer_node")
+    graph.add_edge("answer_node",END)
+
+    chatbot = graph.compile(checkpointer=checkpoint)
+    return chatbot
