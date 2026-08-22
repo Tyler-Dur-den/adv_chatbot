@@ -5,7 +5,7 @@ from langchain_chroma import Chroma
 from langchain_community.retrievers import BM25Retriever
 from langchain_classic.retrievers import EnsembleRetriever
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_classic.chains import create_retrieval_chain
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
@@ -61,7 +61,10 @@ def get_retriever_for_doc_type(file_path: str, doc_type: str):
         return ContextualCompressionRetriever(base_compressor=reranker, base_retriever=base_retriever)
     
 def create_rag_chain(retriever):
-    llm = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=0)
+    llm = ChatGoogleGenerativeAI(
+    model="gemini-3.6-flash",
+    google_api_key=os.getenv("GOOGLE_API_KEY")
+)
 
     system_prompt = (
     "You are an expert document assistant. Answer the user's question directly using "
