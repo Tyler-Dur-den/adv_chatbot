@@ -45,14 +45,24 @@ class RAGConfig:
     }
 
 def _extract_text(content) -> str:
+    if content is None:
+        return ""
+    if hasattr(content, "content"):
+        content = content.content
     if isinstance(content, str):
         return content
     if isinstance(content, list):
-        return " ".join([
-            item.get("text", "") if isinstance(item, dict) else str(item)
-            for item in content
-            if item
-        ])
+        parts = []
+        for item in content:
+            if isinstance(item, dict):
+                parts.append(str(item.get("text", "")))
+            elif hasattr(item, "content"):
+                parts.append(str(item.content))
+            else:
+                parts.append(str(item))
+        return " ".join([p for p in parts if p])
+    if isinstance(content, dict):
+        return str(content.get("text", str(content)))
     return str(content)
 
 def _sanitize_collection_name(raw_name: str) -> str:
@@ -137,8 +147,7 @@ def build_rag_graph(retriever):
 
     def contextualize_question_node(state: RAGState) -> dict:
         messages = state["messages"]
-        latest_question = _extract_text(messages[-1].content)
-        
+        latest_question = _extract_text(messages[-1])
         if len(messages) <= 1:
             return {"standalone_question": latest_question}
 
@@ -148,23 +157,26 @@ def build_rag_graph(retriever):
                 "into a standalone question that contains all necessary context. "
                 "Return ONLY the reformulated question, nothing else."
             )),
-            MessagesPlaceholder("chat_history"),
+            MessagesPlaceholder("chat_history", optional=True),
             ("human", "{input}")
         ])
-        
         chain = prompt | llm
         try:
             reformulated = chain.invoke({
                 "chat_history": messages[:-1],
                 "input": latest_question
             })
-            return {"standalone_question": _extract_text(reformulated.content)}
+            return {"standalone_question": _extract_text(reformulated)}
         except Exception as e:
-            logger.error(f"Contextualization failed: {e}")
+            logger.error(f"Contextualization failed: {e}", exc_info=True)
             return {"standalone_question": latest_question}
 
     def retrieve_node(state: RAGState) -> dict:
-        query = state.get("standalone_question") or _extract_text(state["messages"][-1].content)
+        raw_query = state.get("standalone_question")
+        if not raw_query:
+            raw_query = state["messages"][-1]
+            
+        query = str(_extract_text(raw_query)).strip()
         try:
             docs = retriever.invoke(query)
             if not docs:
@@ -176,23 +188,20 @@ def build_rag_graph(retriever):
                 }
             return {"context": docs}
         except Exception as e:
-            logger.error(f"Retrieval error: {e}")
+            logger.error(f"Retrieval error: {e}", exc_info=True)
             return {
                 "context": [Document(
                     page_content="I encountered an error accessing the document store.",
                     metadata={"error": str(e)}
                 )]
             }
-
     def generate_answer_node(state: RAGState) -> dict:
         docs = state["context"]
-        original_question = _extract_text(state["messages"][-1].content)
-        
+        original_question = _extract_text(state["messages"][-1])
         formatted_context = "\n\n---\n\n".join(
             f"[Source {i+1}]: {doc.page_content}" 
             for i, doc in enumerate(docs[:6])
         )
-        
         if len(formatted_context) > RAGConfig.MAX_CONTEXT_CHARS:
             formatted_context = formatted_context[:RAGConfig.MAX_CONTEXT_CHARS] + "\n[Context truncated due to length]"
         
@@ -205,7 +214,7 @@ def build_rag_graph(retriever):
                 "- Do NOT hallucinate details not present in the documents\n\n"
                 "CONTEXT:\n{context}"
             )),
-            MessagesPlaceholder("chat_history"),
+            MessagesPlaceholder("chat_history", optional=True),
             ("human", "{input}")
         ])
         
@@ -216,12 +225,12 @@ def build_rag_graph(retriever):
                 "chat_history": state["messages"][:-1],
                 "input": original_question
             })
-            return {"messages": [AIMessage(content=_extract_text(response.content))]}
+            return {"messages": [AIMessage(content=_extract_text(response))]}
         except Exception as e:
-            logger.error(f"Generation failed: {e}")
+            logger.error(f"Generation failed: {e}", exc_info=True)
             return {
                 "messages": [AIMessage(
-                    content="I'm having trouble generating a response right now. Could you please rephrase the question?"
+                    content=f"Generation Error: {str(e)}"
                 )]
             }
 
