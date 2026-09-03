@@ -67,4 +67,4 @@ if user_input := st.chat_input("Ask a question about your document..."):
                         st.markdown(f"**Chunk {idx+1} (Page {doc.metadata.get('page', 'N/A')})**")
                         st.text(doc.page_content[:300] + "...")
 
-        st.session_state.messages.append({"role": "assistant", "content": answer})
+        st.session_state.messages.append({"role": "assistant", "content": answer})  
