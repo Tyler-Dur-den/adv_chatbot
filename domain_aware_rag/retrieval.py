@@ -15,7 +15,7 @@ from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 from langchain_classic.retrievers.document_compressors import CrossEncoderReranker
 from langchain_classic.retrievers import ContextualCompressionRetriever
 
-from config import RAGConfig, settings
+from domain_aware_rag.config import RAGConfig, settings
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 

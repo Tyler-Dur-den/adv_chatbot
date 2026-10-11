@@ -7,7 +7,7 @@ from langchain_core.documents import Document
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 import logging
-from config import RAGConfig, settings
+from domain_aware.config import RAGConfig, settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

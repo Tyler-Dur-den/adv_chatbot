@@ -1,4 +1,4 @@
-from retrieval import get_retriever_for_doc_type
+from domain_aware_rag.retrieval import get_retriever_for_doc_type
 
 def hit_at_k(docs, gold_pages, k=3):
     for rank, d in enumerate(docs[:k], 1):
