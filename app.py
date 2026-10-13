@@ -2,8 +2,8 @@ import os
 import tempfile
 import uuid
 import streamlit as st
-from retrieval import get_retriever_for_doc_type
-from graph import build_rag_graph
+from domain_aware_rag.retrieval import get_retriever_for_doc_type
+from domain_aware_rag.graph import build_rag_graph
 from langchain_core.messages import HumanMessage
 
 st.set_page_config(page_title="Domain-Aware RAG Assistant", page_icon="📚", layout="wide")

@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-cross_encoder_model = HuggingFaceCrossEncoder(model_name="BAAI/bge-reranker-v2-m3")
+cross_encoder_model = HuggingFaceCrossEncoder(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
 
 def _sanitize_collection_name(raw_name: str) -> str:
     cleaned = re.sub(r'[^a-zA-Z0-9_-]', '_', raw_name)
@@ -88,5 +88,6 @@ def get_retriever_for_doc_type(file_path: str, doc_type: str):
                 search_kwargs={"k": config["k"]}
             )
             
-    reranker = CrossEncoderReranker(model=cross_encoder_model, top_n=config["k"])
+    # Hardcode to 2 chunks to slash token costs and LLM latency
+    reranker = CrossEncoderReranker(model=cross_encoder_model, top_n=2)
     return ContextualCompressionRetriever(base_compressor=reranker, base_retriever=base_retriever)
