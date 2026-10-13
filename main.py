@@ -3,13 +3,10 @@ from domain_aware_rag.graph import build_rag_graph
 
 def main():
     print("Loading document and initializing Advanced RAG pipeline...")
-    # Initialize the retriever
     retriever = get_retriever_for_doc_type("2312.10997v5.pdf", "Academic Paper")
     
-    # Build and compile the LangGraph application
     app = build_rag_graph(retriever)
     
-    # Required for LangGraph's MemorySaver checkpointer
     config = {"configurable": {"thread_id": "1"}}
     
     print("\nPipeline Ready. Type 'quit' to exit.")

@@ -5,6 +5,7 @@ from typing import TypedDict, Annotated, List, Optional
 from langchain_core.messages import BaseMessage, AIMessage
 from langchain_core.documents import Document
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 import logging
 from domain_aware_rag.config import RAGConfig, settings
@@ -38,9 +39,8 @@ def _extract_text(content) -> str:
     return str(content)
 
 def build_rag_graph(retriever):
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-3.6-flash",
-        google_api_key=settings.GOOGLE_API_KEY,
+    llm = ChatGroq(
+        model_name="qwen/qwen3.8-27b", 
         temperature=0
     )
 

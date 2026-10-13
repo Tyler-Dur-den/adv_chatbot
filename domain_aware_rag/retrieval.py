@@ -2,6 +2,7 @@ import os
 import re
 import logging
 import chromadb
+import streamlit as st  
 
 from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader
@@ -26,11 +27,13 @@ cross_encoder_model = HuggingFaceCrossEncoder(model_name="cross-encoder/ms-marco
 
 def _sanitize_collection_name(raw_name: str) -> str:
     cleaned = re.sub(r'[^a-zA-Z0-9_-]', '_', raw_name)
+    cleaned = cleaned.strip('_-') 
     if len(cleaned) < 3:
-        cleaned = cleaned.ljust(3, '_')
+        cleaned = cleaned.ljust(3, 'a')
     return cleaned[:63]
 
-def get_chroma_client() -> chromadb.PersistentClient:
+@st.cache_resource
+def get_chroma_client():
     return chromadb.PersistentClient(path=settings.VECTOR_DB_PATH)
 
 def get_retriever_for_doc_type(file_path: str, doc_type: str):
@@ -88,6 +91,5 @@ def get_retriever_for_doc_type(file_path: str, doc_type: str):
                 search_kwargs={"k": config["k"]}
             )
             
-    # Hardcode to 2 chunks to slash token costs and LLM latency
     reranker = CrossEncoderReranker(model=cross_encoder_model, top_n=2)
     return ContextualCompressionRetriever(base_compressor=reranker, base_retriever=base_retriever)

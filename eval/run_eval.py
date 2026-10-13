@@ -1,21 +1,3 @@
-"""
-eval/run_eval.py
-
-Compare three systems on the same questions, with the same LLM and the same answer prompt:
-
-  long_context  - the whole PDF text goes into the prompt
-  plain_rag     - 500/50 recursive chunks, top-3 similarity search (the baseline)
-  domain_aware  - your get_retriever_for_doc_type() from main.py
-
-Only the context differs between systems. Answers are graded by a different model family
-(Groq Llama) than the one that answers (Gemini) to reduce self-preference bias.
-
-Run from the repo root:
-    python eval/run_eval.py --limit 2     # quick dry run
-    python eval/run_eval.py               # full run (resumable, results are cached)
-
-Needs: eval/questions.csv, the PDFs listed in DOCS, GOOGLE_API_KEY and GROQ_API_KEY in .env
-"""
 import argparse
 import json
 import os
@@ -27,16 +9,11 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))  # so `import main` finds your pipeline
-
+sys.path.insert(0, str(ROOT)) 
 SYSTEMS = ["plain_rag", "domain_aware"]
 
-# domain in questions.csv -> (pdf path relative to repo root, doc_type for get_retriever_for_doc_type)
 DOCS = {
-    "academic": ("eval/docs/rag_survey.pdf", "Academic Paper"),
-    # "legal": ("eval/docs/contract.pdf", "Legal Contract"),
-    # "financial": ("eval/docs/annual_report.pdf", "Financial Report"),
-    # "technical": ("eval/docs/manual.pdf", "Technical Manual"),
+    "academic": ("eval/docs/rag_survey.pdf", "Academic Paper")
 }
 
 ANSWER_SYSTEM = (
@@ -63,9 +40,6 @@ RULE_UNANSWERABLE = (
     "The question is NOT answerable from the document. Mark correct only if the candidate says it "
     "does not know or that the document does not say. Any invented specific answer is incorrect."
 )
-
-
-# ---------------------------------------------------------------- helpers (no heavy imports)
 
 def with_retry(fn, tries=6, base=5):
     """Retry on rate limits / timeouts with exponential backoff."""
@@ -167,8 +141,6 @@ def summarize(rows, out_dir):
     print(f"\nSaved to {out_dir}: results.csv, summary.md, summary_by_type.md, spot_check.csv")
 
 
-# ---------------------------------------------------------------- the evaluation itself
-
 def run(args):
     from langchain_chroma import Chroma
     from langchain_community.document_loaders import PyPDFLoader
@@ -178,16 +150,14 @@ def run(args):
     from langchain_text_splitters import RecursiveCharacterTextSplitter
     from pydantic import BaseModel, Field
 
-    import main as app  # your pipeline: embeddings, get_retriever_for_doc_type, chroma helpers
+    import main as app 
 
     class Verdict(BaseModel):
         correct: bool = Field(description="True if the candidate answer is correct under the stated rule")
         reason: str = Field(description="One short sentence explaining the verdict")
 
-   # Use Groq for EVERYTHING to bypass Google's rate limits completely.
     from langchain_groq import ChatGroq
     
-    # The Answer Generator
     answer_llm = ChatGroq(
         model_name="qwen/qwen3.8-27b", 
         temperature=0
@@ -198,7 +168,6 @@ def run(args):
     )
     chain = prompt | answer_llm
 
-    # The Judge
     judge = ChatGroq(
         model_name="qwen/qwen3.8-27b", 
         temperature=0
@@ -236,12 +205,10 @@ def run(args):
         generation_s = time.time() - t1
         answer = to_text(msg.content)
         
-        # Qwen/Groq sometimes drops usage metadata in Langchain, so use a safe fallback
         usage = getattr(msg, "usage_metadata", None) or {}
         in_tok = usage.get("input_tokens") or (len(context) + len(q["question"])) // 4
         out_tok = usage.get("output_tokens") or len(answer) // 4
 
-        # --- NEW JSON JUDGE LOGIC ---
         judge_prompt = JUDGE_TEMPLATE.format(
             question=q["question"],
             gold=q["gold_answer"],
@@ -255,7 +222,6 @@ def run(args):
             return json.loads(res.content)
             
         verdict = with_retry(run_judge)
-        # ----------------------------
 
         return {
             "id": q["id"], "domain": q["domain"], "system": system, "type": q["type"],
